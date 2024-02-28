@@ -12,6 +12,7 @@ from torch.cuda.amp import autocast, GradScaler
 from model import SpeechRecognitionModel
 from utils import *
 from transform import *
+import nlptutti as metrics
 
 
 class IterMeter(object):
@@ -89,7 +90,7 @@ def test(model, device, test_loader, criterion, epoch, iter_meter, experiment):
 
 def main(learning_rate=5e-4, batch_size=20, epochs=10,
         train_url="train-clean-100", test_url="test-clean",
-        experiment=Experiment(api_key=api_key, disabled=True)): 
+        experiment=Experiment(api_key="6Io253PnDNxNvAoQvpWsRLoTx", disabled=True)):
 
     hparams = {
         "n_cnn_layers": 3,
@@ -109,16 +110,19 @@ def main(learning_rate=5e-4, batch_size=20, epochs=10,
     # device setting
     os.environ["CUDA_VISIBLE_DEVICES"]='0,1'
     use_cuda = torch.cuda.is_available()
-    torch.manual_seed(7)
+    torch.manual_seed(7)    #순서?
     device = torch.device("cuda" if use_cuda else "cpu")
 
+    # sampler
+    train_sampler = torch.utils.data.sampler.SubsetRandomSampler(100)
     # dataset
     if not os.path.isdir("./data"):
         os.makedirs("./data")
 
     train_dataset = torchaudio.datasets.LIBRISPEECH("./data", url=train_url, download=False)
     test_dataset = torchaudio.datasets.LIBRISPEECH("./data", url=test_url, download=False)
-
+    #print(train_dataset); exit()
+    #train_dataset = train_dataset[:100];exit()
     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
     train_loader = DataLoader(dataset=train_dataset,
                                 batch_size=hparams['batch_size'],
@@ -130,7 +134,7 @@ def main(learning_rate=5e-4, batch_size=20, epochs=10,
                                 shuffle=False,
                                 collate_fn=lambda x: data_processing(x, 'valid'),
                                 **kwargs)
-
+    #print(len(train_loader))
     # model configuration
     model = SpeechRecognitionModel(
         hparams['n_cnn_layers'], hparams['n_rnn_layers'], hparams['rnn_dim'],
@@ -153,3 +157,17 @@ def main(learning_rate=5e-4, batch_size=20, epochs=10,
     for epoch in range(1, epochs + 1):
         train(model, device, train_loader, criterion, optimizer, scheduler, epoch, iter_meter, experiment)
         test(model, device, test_loader, criterion, epoch, iter_meter, experiment)
+
+if __name__=="__main__":
+    # comet
+    api_key         = "6Io253PnDNxNvAoQvpWsRLoTx"
+    project_name    = "automatic-speech-recognition"
+    workspace       = "rndlwjs"
+    experiment_name = "BiRNN-CTC"
+    
+    #hyperparameters
+    #learning_rate   = 0.0001
+    #batch_size      = 32
+    #epochs          = 10
+    
+    main()
