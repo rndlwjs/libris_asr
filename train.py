@@ -1,4 +1,3 @@
-from comet_ml import Experiment
 import os
 import gc
 import argparse
@@ -27,70 +26,64 @@ class IterMeter(object):
         return self.val
 
 
-def train(model, device, train_loader, criterion, optimizer, scheduler, epoch, iter_meter, experiment):
+def train(model, device, train_loader, criterion, optimizer, scheduler, epoch, iter_meter):
     model.train()
     data_len = len(train_loader.dataset)
-    with experiment.train():
-        for batch_idx, _data in enumerate(train_loader):
+
+    for batch_idx, _data in enumerate(train_loader):
+        spectrograms, labels, input_lengths, label_lengths = _data 
+        spectrograms, labels = spectrograms.to(device), labels.to(device)
+
+        optimizer.zero_grad()
+
+        output = model(spectrograms)  # (batch, time, n_class)
+        output = F.log_softmax(output, dim=2)
+        output = output.transpose(0, 1) # (time, batch, n_class)
+
+        loss = criterion(output, labels, input_lengths, label_lengths)
+        loss.backward()
+
+        optimizer.step()
+        scheduler.step()
+        iter_meter.step()
+        if batch_idx % 100 == 0 or batch_idx == data_len:
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                epoch, batch_idx * len(spectrograms), data_len,
+                100. * batch_idx / len(train_loader), loss.item()))
+
+
+def test(model, device, test_loader, criterion, epoch, iter_meter):
+    print('\nevaluating…')
+    model.eval()
+    test_loss = 0
+    test_cer, test_wer = [], []
+
+    with torch.no_grad():
+        for I, _data in enumerate(test_loader):
             spectrograms, labels, input_lengths, label_lengths = _data 
             spectrograms, labels = spectrograms.to(device), labels.to(device)
-
-            optimizer.zero_grad()
 
             output = model(spectrograms)  # (batch, time, n_class)
             output = F.log_softmax(output, dim=2)
             output = output.transpose(0, 1) # (time, batch, n_class)
 
             loss = criterion(output, labels, input_lengths, label_lengths)
-            loss.backward()
+            test_loss += loss.item() / len(test_loader)
 
-            experiment.log_metric('loss', loss.item(), step=iter_meter.get())
-            experiment.log_metric('learning_rate', scheduler.get_lr(), step=iter_meter.get())
-
-            optimizer.step()
-            scheduler.step()
-            iter_meter.step()
-            if batch_idx % 100 == 0 or batch_idx == data_len:
-                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch, batch_idx * len(spectrograms), data_len,
-                    100. * batch_idx / len(train_loader), loss.item()))
-
-
-def test(model, device, test_loader, criterion, epoch, iter_meter, experiment):
-    print('\nevaluating…')
-    model.eval()
-    test_loss = 0
-    test_cer, test_wer = [], []
-    with experiment.test():
-        with torch.no_grad():
-            for I, _data in enumerate(test_loader):
-                spectrograms, labels, input_lengths, label_lengths = _data 
-                spectrograms, labels = spectrograms.to(device), labels.to(device)
-
-                output = model(spectrograms)  # (batch, time, n_class)
-                output = F.log_softmax(output, dim=2)
-                output = output.transpose(0, 1) # (time, batch, n_class)
-
-                loss = criterion(output, labels, input_lengths, label_lengths)
-                test_loss += loss.item() / len(test_loader)
-
-                decoded_preds, decoded_targets = GreedyDecoder(output.transpose(0, 1), labels, label_lengths)
-                for j in range(len(decoded_preds)):
-                    test_cer.append(cer(decoded_targets[j], decoded_preds[j]))
-                    test_wer.append(wer(decoded_targets[j], decoded_preds[j]))
+            decoded_preds, decoded_targets = GreedyDecoder(output.transpose(0, 1), labels, label_lengths)
+            for j in range(len(decoded_preds)):
+                test_cer.append(cer(decoded_targets[j], decoded_preds[j]))
+                test_wer.append(wer(decoded_targets[j], decoded_preds[j]))
 
 
     avg_cer = sum(test_cer)/len(test_cer)
     avg_wer = sum(test_wer)/len(test_wer)
-    experiment.log_metric('test_loss', test_loss, step=iter_meter.get())
-    experiment.log_metric('cer', avg_cer, step=iter_meter.get())
-    experiment.log_metric('wer', avg_wer, step=iter_meter.get())
+
 
     print('Test set: Average loss: {:.4f}, Average CER: {:4f} Average WER: {:.4f}\n'.format(test_loss, avg_cer, avg_wer))
 
 def main(learning_rate=5e-4, batch_size=20, epochs=10,
-        train_url="train-clean-100", test_url="test-clean",
-        experiment=Experiment(api_key="6Io253PnDNxNvAoQvpWsRLoTx", disabled=True)):
+        train_url="train-clean-100", test_url="test-clean", disabled=True):
 
     hparams = {
         "n_cnn_layers": 3,
@@ -105,8 +98,6 @@ def main(learning_rate=5e-4, batch_size=20, epochs=10,
         "epochs": epochs
     }
 
-    experiment.log_parameters(hparams)
-
     # device setting
     os.environ["CUDA_VISIBLE_DEVICES"]='0,1'
     use_cuda = torch.cuda.is_available()
@@ -119,8 +110,8 @@ def main(learning_rate=5e-4, batch_size=20, epochs=10,
     if not os.path.isdir("./data"):
         os.makedirs("./data")
 
-    train_dataset = torchaudio.datasets.LIBRISPEECH("./data", url=train_url, download=False)
-    test_dataset = torchaudio.datasets.LIBRISPEECH("./data", url=test_url, download=False)
+    train_dataset = torchaudio.datasets.LIBRISPEECH("../Data", url=train_url, download=False)
+    test_dataset = torchaudio.datasets.LIBRISPEECH("../Data", url=test_url, download=False)
     #print(train_dataset); exit()
     #train_dataset = train_dataset[:100];exit()
     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
@@ -155,19 +146,8 @@ def main(learning_rate=5e-4, batch_size=20, epochs=10,
 
     # Training and Testing
     for epoch in range(1, epochs + 1):
-        train(model, device, train_loader, criterion, optimizer, scheduler, epoch, iter_meter, experiment)
-        test(model, device, test_loader, criterion, epoch, iter_meter, experiment)
+        train(model, device, train_loader, criterion, optimizer, scheduler, epoch, iter_meter)
+        test(model, device, test_loader, criterion, epoch, iter_meter)
 
-if __name__=="__main__":
-    # comet
-    api_key         = "6Io253PnDNxNvAoQvpWsRLoTx"
-    project_name    = "automatic-speech-recognition"
-    workspace       = "rndlwjs"
-    experiment_name = "BiRNN-CTC"
-    
-    #hyperparameters
-    #learning_rate   = 0.0001
-    #batch_size      = 32
-    #epochs          = 10
-    
+if __name__=="__main__":    
     main()
