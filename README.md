@@ -1,6 +1,6 @@
 # libris_asr
 
-This repository is the basic implementation of Automatic Speech Recognition.
+This repository is the basic implementation of Automatic Speech Recognition using Pytorch-lightning.
 
 ### Training examples
 
@@ -8,8 +8,8 @@ This repository is the basic implementation of Automatic Speech Recognition.
 python ./train.py
 ```
 
- ### Results
- model|test-100
+### Results
+model (train-100)|test-clean
 :---:|:---:
 DS2|23.04%
 Conformer|26.3%
@@ -42,6 +42,19 @@ Conformer|26.3%
 }
 ```
 
+[3] _E-branchformer: Branchformer with enhanced merging for speech recognition_
+```
+@inproceedings{kim2023branchformer,
+  title={E-branchformer: Branchformer with enhanced merging for speech recognition},
+  author={Kim, Kwangyoun and Wu, Felix and Peng, Yifan and Pan, Jing and Sridhar, Prashant and Han, Kyu J and Watanabe, Shinji},
+  booktitle={2022 IEEE Spoken Language Technology Workshop (SLT)},
+  pages={84--91},
+  year={2023},
+  organization={IEEE}
+}
+```
 ### Code Reference
 
 [1] https://www.assemblyai.com/blog/end-to-end-speech-recognition-pytorch/
+
+[2] https://github.com/espnet/espnet
