@@ -1,13 +1,13 @@
 import yaml
 import torch
-from nets_utils import make_pad_mask, get_activation, Swish
-from subsampling import Conv2dSubsampling
-from embedding import RelPositionalEncoding
-from eb import EBranchformerEncoderLayer
-from attention import RelPositionMultiHeadedAttention
-from cgmlp import ConvolutionalGatingMLP
-from repeat import repeat
-from layer_norm import LayerNorm
+from branchformer.nets_utils import make_pad_mask, get_activation, Swish
+from branchformer.subsampling import Conv2dSubsampling
+from branchformer.embedding import RelPositionalEncoding
+from branchformer.eb import EBranchformerEncoderLayer
+from branchformer.attention import RelPositionMultiHeadedAttention
+from branchformer.cgmlp import ConvolutionalGatingMLP
+from branchformer.repeat import repeat
+from branchformer.layer_norm import LayerNorm
 
 ### Config
 

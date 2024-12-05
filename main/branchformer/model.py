@@ -12,14 +12,14 @@ import yaml
 from branchformer.nets_utils import make_pad_mask, get_activation, Swish
 from branchformer.subsampling import Conv2dSubsampling
 from branchformer.embedding import RelPositionalEncoding
-from branchformer.eb import EBranchformerEncoderLayer
+from branchformer.eb import EBranchformerEncoder
 from branchformer.attention import RelPositionMultiHeadedAttention
 from branchformer.cgmlp import ConvolutionalGatingMLP
 from branchformer.repeat import repeat
 from branchformer.layer_norm import LayerNorm
 
 from models.joint_ctc_cross_entropy import JointCTCCrossEntropyLoss
-
+from models.decoder import DecoderRNN
 from pytorch_lightning.loggers import TensorBoardLogger
 
 
@@ -41,9 +41,39 @@ class BranchformerLSTMModel(pl.LightningModule):
             cross_entropy_weight=0.7,
         )
 
-        self.encoder = EBranchformerEncoderLayer(
-            
-        )
+        if True:
+            self.encoder = EBranchformerEncoder(
+                input_size=80,
+                output_size=256,
+                attention_heads=4,
+                attention_layer_type="rel_selfattn",
+                pos_enc_layer_type="rel_pos",
+                rel_pos_type="latest",
+                cgmlp_linear_units=2048,
+                cgmlp_conv_kernel=31,
+                use_linear_after_conv=False,
+                gate_activation="identity",
+                num_blocks=12,
+                dropout_rate=0.1,
+                positional_dropout_rate=0.1,
+                attention_dropout_rate=0.0,
+                input_layer="conv2d",
+                zero_triu=False,
+                padding_idx=-1,
+                layer_drop_rate=0.0,
+                max_pos_emb_len=5000,
+                use_ffn=False,
+                macaron_ffn=False,
+                ffn_activation_type="swish",
+                linear_units=2048,
+                positionwise_layer_type="linear",
+                merge_conv_kernel=3,
+                interctc_layer_idx=None,
+                interctc_use_conditioning=False,
+                qk_norm=False,
+                use_flash_attn=True,
+                )
+
         if False:
             self.encoder = ConformerEncoder(
                 num_classes=30,

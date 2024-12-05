@@ -15,6 +15,7 @@ from lightning.pytorch import seed_everything
 import sentencepiece as spm
 from transform import TextTransform, preprocess
 from models.model import ConformerLSTMModel
+from branchformer.model import BranchformerLSTMModel
 from pytorch_lightning.utilities.model_summary import LayerSummary
 
 ### Make Tokenizer
@@ -92,7 +93,7 @@ epochs        = 3
 
 ### Training
 seed_everything(42, workers=True)
-model = ConformerLSTMModel()
+model = BranchformerLSTMModel()
 
 #param = LayerSummary(model).num_parameters / 1000000
 #print("The size of the model is: ", round(param, 2))

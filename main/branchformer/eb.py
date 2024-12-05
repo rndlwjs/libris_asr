@@ -1,14 +1,35 @@
 import logging
+import yaml
 from typing import Optional, Tuple
 import torch
 from branchformer.nets_utils import make_pad_mask, get_activation, Swish
 from branchformer.subsampling import Conv2dSubsampling
 from branchformer.embedding import RelPositionalEncoding
-from branchformer.eb import EBranchformerEncoderLayer
+#from branchformer.eb import EBranchformerEncoderLayer
 from branchformer.attention import RelPositionMultiHeadedAttention
 from branchformer.cgmlp import ConvolutionalGatingMLP
 from branchformer.repeat import repeat
 from branchformer.layer_norm import LayerNorm
+
+from abc import ABC, abstractmethod
+from typing import Optional, Tuple
+from typeguard import typechecked
+
+with open("/home/rndlwjs/qhdd14/hdd14/kyujin/241125_asr_project/libris_asr/main/branchformer/train_asr_e_branchformer_size256_mlp1024_linear1024_e12_mactrue_edrop0.0_ddrop0.0.yaml") as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)['encoder_conf']
+
+class PositionwiseFeedForward(torch.nn.Module):
+    def __init__(self, idim, hidden_units, dropout_rate, activation=torch.nn.ReLU()):
+        """Construct an PositionwiseFeedForward object."""
+        super(PositionwiseFeedForward, self).__init__()
+        self.w_1 = torch.nn.Linear(idim, hidden_units)
+        self.w_2 = torch.nn.Linear(hidden_units, idim)
+        self.dropout = torch.nn.Dropout(dropout_rate)
+        self.activation = activation
+
+    def forward(self, x):
+        """Forward function."""
+        return self.w_2(self.dropout(self.activation(self.w_1(x))))
 
 class EBranchformerEncoderLayer(torch.nn.Module):
     """E-Branchformer encoder layer module.
@@ -140,10 +161,10 @@ class EBranchformerEncoderLayer(torch.nn.Module):
 
         return x, mask
 
-class EBranchformerEncoder(AbsEncoder):
+class EBranchformerEncoder(torch.nn.Module):
     """E-Branchformer encoder module."""
 
-    @typechecked
+    #@typechecked
     def __init__(
         self,
         input_size: int = 80,
@@ -187,7 +208,7 @@ class EBranchformerEncoder(AbsEncoder):
             idim=80, 
             odim=config['output_size'], 
             dropout_rate=['dropout_rate'], 
-            pos_enc=pos_enc_class(d_model=config['output_size'], dropout_rate=config['positional_dropout_rate'], max_len=5000)
+            pos_enc=self.pos_enc_class(d_model=config['output_size'], dropout_rate=config['positional_dropout_rate'], max_len=5000)
             )
 
         self.activation = get_activation(ffn_activation_type)
@@ -201,17 +222,17 @@ class EBranchformerEncoder(AbsEncoder):
         self.cgmlp_layer_args = (config['output_size'], config['cgmlp_linear_units'], config['cgmlp_conv_kernel'], config['dropout_rate'], False, config['gate_activation'],)
 
         self.positionwise_layer = PositionwiseFeedForward
-        self.positionwise_layer_args = (output_size, linear_units, dropout_rate, activation,)
+        self.positionwise_layer_args = (output_size, linear_units, dropout_rate, self.activation,)
 
         self.encoders = repeat(
             config['num_blocks'],
             lambda lnum: EBranchformerEncoderLayer(
                 size=config['output_size'],
-                attn=encoder_selfattn_layer(*encoder_selfattn_layer_args),
-                cgmlp=cgmlp_layer(*cgmlp_layer_args),
-                feed_forward=positionwise_layer(*positionwise_layer_args) if use_ffn else None,
+                attn=self.encoder_selfattn_layer(*self.encoder_selfattn_layer_args),
+                cgmlp=self.cgmlp_layer(*self.cgmlp_layer_args),
+                feed_forward=positionwise_layer(*self.positionwise_layer_args) if use_ffn else None,
                 feed_forward_macaron=(
-                    positionwise_layer(*positionwise_layer_args)
+                    self.positionwise_layer(*self.positionwise_layer_args)
                     if use_ffn and macaron_ffn
                     else None
                 ),
@@ -227,7 +248,7 @@ class EBranchformerEncoder(AbsEncoder):
         xs_pad: torch.Tensor,
         ilens: torch.Tensor,
         prev_states: torch.Tensor = None,
-        ctc: CTC = None,
+        ctc=None,
         max_layer: int = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """Calculate forward propagation.
@@ -255,4 +276,5 @@ class EBranchformerEncoder(AbsEncoder):
         xs_pad = self.after_norm(xs_pad)
         olens = masks.squeeze(1).sum(1)
 
-        return xs_pad, olens, None
+        return xs_pad, xs_pad, olens #encoder_log_probs, outputs, output_lengths
+        #return xs_pad, olens, None

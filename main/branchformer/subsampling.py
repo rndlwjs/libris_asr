@@ -1,5 +1,5 @@
 import torch
-from embedding import PositionalEncoding
+from branchformer.embedding import PositionalEncoding
 
 class Conv2dSubsampling(torch.nn.Module):
     """Convolutional 2D subsampling (to 1/4 length).

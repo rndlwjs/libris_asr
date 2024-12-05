@@ -8,8 +8,8 @@ References:
 
 import torch
 
-from nets_utils import get_activation
-from layer_norm import LayerNorm
+from branchformer.nets_utils import get_activation
+from branchformer.layer_norm import LayerNorm
 
 
 class ConvolutionalSpatialGatingUnit(torch.nn.Module):
