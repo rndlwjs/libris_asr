@@ -10,13 +10,13 @@ from torch.optim import Adam
 
 import yaml
 from branchformer.nets_utils import make_pad_mask, get_activation, Swish
+from branchformer.repeat import repeat
+from branchformer.layer_norm import LayerNorm
 from branchformer.subsampling import Conv2dSubsampling
 from branchformer.embedding import RelPositionalEncoding
 from branchformer.eb import EBranchformerEncoder
 from branchformer.attention import RelPositionMultiHeadedAttention
 from branchformer.cgmlp import ConvolutionalGatingMLP
-from branchformer.repeat import repeat
-from branchformer.layer_norm import LayerNorm
 
 from models.joint_ctc_cross_entropy import JointCTCCrossEntropyLoss
 from models.decoder import DecoderRNN
