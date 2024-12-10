@@ -15,9 +15,11 @@ from models.joint_ctc_cross_entropy import JointCTCCrossEntropyLoss
 
 from pytorch_lightning.loggers import TensorBoardLogger
 
+from transform import TextTransform
 #from lightning_asr.vocabs import LibriSpeechVocabulary
 #from lightning_asr.vocabs.vocab import Vocabulary
 
+TextTransform = TextTransform()
 
 class ConformerLSTMModel(pl.LightningModule):
     def __init__(
@@ -41,9 +43,9 @@ class ConformerLSTMModel(pl.LightningModule):
             num_classes=30,
             input_dim=80,
             encoder_dim=256,
-            num_layers=1,
+            num_layers=16,
             num_attention_heads=4,
-            feed_forward_expansion_factor=1024,
+            feed_forward_expansion_factor=4,
             conv_expansion_factor=2,
             input_dropout_p=0.1,
             feed_forward_dropout_p=0.1,
@@ -129,6 +131,35 @@ class ConformerLSTMModel(pl.LightningModule):
 
         return loss
 
+    
+    def test_step(self, batch: tuple, batch_idx: int) -> Tensor:
+        """
+        Forward propagate a `inputs` and `targets` pair for test.
+
+        Inputs:
+            train_batch (tuple): A train batch contains `inputs`, `targets`, `input_lengths`, `target_lengths`
+            batch_idx (int): The index of batch
+
+        Returns:
+            loss (torch.FloatTensor): Loss for training.
+        """
+        inputs, targets = batch
+        encoder_log_probs, encoder_outputs, encoder_output_lengths = self.encoder(inputs, inputs.size(1))
+        outputs = self.decoder(encoder_outputs=encoder_outputs, teacher_forcing_ratio=0.0)
+
+        max_target_length = targets.size(1) - 1  # minus the start of sequence symbol
+        outputs = outputs[:, :max_target_length, :]
+
+        y_hats = outputs.max(-1)[1]
+
+        targets = targets.squeeze().cpu().detach().numpy()
+        y_hats = y_hats.squeeze().cpu().detach().numpy()
+        
+        print("target", TextTransform.int_to_text(targets))
+        print("prediction", TextTransform.int_to_text(y_hats))
+
+        #cer = self.cer_metric(targets[:, 1:], y_hats)
+    
     def configure_optimizers(self) -> Dict[str, Union[torch.optim.Optimizer, object, str]]:
 
         optimizer = Adam(self.parameters(), lr=1e-04)

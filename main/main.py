@@ -97,7 +97,8 @@ def _collate_fn(batch, pad_id=0):
 
 
 train_dataset = LibriSpeechDataset()
-train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=False, collate_fn=_collate_fn,)
+train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=False, collate_fn=_collate_fn,)
+test_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=False,)
 
 #for n, i in enumerate(train_dataloader):
 #    audio, label, audio_len, label_len = i
@@ -105,14 +106,15 @@ train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=False, colla
 #    if n == 5: break
 
 ### Hyperparameters
-epochs        = 3
+epochs        = 10
 
 ### Training
 seed_everything(42, workers=True)
-model = BranchformerLSTMModel()
+model = ConformerLSTMModel()
 
 param = LayerSummary(model).num_parameters / 1000000
 print("The size of the model is: ", round(param, 2))
 
 trainer = Trainer(precision=16, max_epochs=epochs)
 trainer.fit(model, train_dataloader)
+#trainer.test(model, dataloaders=test_dataloader, ckpt_path="/home/rndlwjs/qhdd14/hdd14/kyujin/241125_asr_project/libris_asr/main/lightning_logs/version_0/checkpoints/epoch=4-step=410.ckpt")
