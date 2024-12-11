@@ -58,7 +58,7 @@ class ConformerLSTMModel(pl.LightningModule):
 
         self.decoder = DecoderRNN(
             num_classes=30,
-            max_length=128, #have to look
+            max_length=578, #choose between 128 and 578 (max len in test-clean dataset)
             hidden_state_dim=256,
             pad_id=0, #self.vocab.pad_id, #0, 1, 2
             sos_id=1, #self.vocab.sos_id,
@@ -127,10 +127,47 @@ class ConformerLSTMModel(pl.LightningModule):
 
         y_hats = outputs.max(-1)[1]
 
+        if batch_idx == 0:
+            targets = targets[0].squeeze().cpu().detach().numpy()
+            y_hats = y_hats[0].squeeze().cpu().detach().numpy()
+            
+            #print(targets.shape, y_hats.shape)
+            print("target", TextTransform.int_to_text(targets))
+            print("prediction", TextTransform.int_to_text(y_hats))
+
+
         self._log_states('train', loss, cross_entropy_loss, ctc_loss)
 
         return loss
 
+    def validation_step(self, batch: tuple, batch_idx: int) -> Tensor:
+        inputs, targets, input_lengths, target_lengths = batch
+
+        encoder_log_probs, encoder_outputs, encoder_output_lengths = self.encoder(inputs, input_lengths)
+        outputs = self.decoder(encoder_outputs=encoder_outputs, teacher_forcing_ratio=0.0)
+
+        max_target_length = targets.size(1) - 1  # minus the start of sequence symbol
+        outputs = outputs[:, :max_target_length, :]
+
+        loss, ctc_loss, cross_entropy_loss = self.criterion(
+            encoder_log_probs=encoder_log_probs.transpose(0, 1),
+            decoder_log_probs=outputs.contiguous().view(-1, outputs.size(-1)),
+            output_lengths=encoder_output_lengths,
+            targets=targets[:, 1:],
+            target_lengths=target_lengths,
+        )
+
+        y_hats = outputs.max(-1)[1]
+
+        targets = targets.squeeze().cpu().detach().numpy()
+        y_hats = y_hats.squeeze().cpu().detach().numpy()
+        
+        print("target", TextTransform.int_to_text(targets))
+        print("prediction", TextTransform.int_to_text(y_hats))
+
+        self._log_states('valid', loss, cross_entropy_loss, ctc_loss)
+
+        return loss
     
     def test_step(self, batch: tuple, batch_idx: int) -> Tensor:
         """

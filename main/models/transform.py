@@ -4,7 +4,7 @@ class TextTransform:
   ''' Map characters to integers and vice versa '''
   def __init__(self):
     self.char_map = {}
-    self.char_map["<pad>"] = 0
+    self.char_map["+"] = 0
     self.char_map["@"] = 1 #<s>
     self.char_map["!"] = 2 #</s>
     self.char_map["_"] = 3 #<blank>
@@ -28,7 +28,7 @@ class TextTransform:
       ''' Map integer sequence to text string '''
       string = []
       for i in labels:
-          if i == 3: # blank char
+          if i in range(4): #i == 3: # blank char
             continue
           else:
             string.append(self.index_map[i])
