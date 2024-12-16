@@ -60,7 +60,7 @@ blank = sp.PieceToId("<blank>")
 class LibriSpeechDataset(torchaudio.datasets.LIBRISPEECH):
     def __init__(self, type="train", download=False):
         if type=='train':
-            super().__init__(root='/home/rndlwjs/conformer/data', url='train-clean-100', download=False)
+            super().__init__(root='/home/rndlwjs/conformer/data', url='test-clean', download=False)
             self.aug = True
 
         self.TextTransform = TextTransform()
