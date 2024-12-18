@@ -1,3 +1,5 @@
+# DeepSpeech2 CTC model
+
 import torch
 import torchaudio
 import torch.nn as nn

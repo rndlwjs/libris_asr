@@ -16,7 +16,8 @@ from lightning.pytorch import seed_everything
 from lightning.pytorch import loggers as pl_loggers
 import sentencepiece as spm
 from transform import TextTransform, preprocess
-from DS2.ds2 import DeepSpeech2ASR
+#from DS2.ds2 import DeepSpeech2ASR
+from Ebranchformer.ebranchformer import EbranchformerASR
 from pytorch_lightning.utilities.model_summary import LayerSummary
 
 ### Dataset, Dataloader
@@ -44,7 +45,7 @@ class LibriSpeechDataset(torchaudio.datasets.LIBRISPEECH):
             audio = self.SpecAug(audio)
         transcript = preprocess(transcript)
         labels = self.TextTransform.text_to_int(text=transcript)
-        label = torch.Tensor(labels)
+        label = torch.LongTensor(labels)
         return audio, label
 
     def __len__(self):
@@ -54,18 +55,20 @@ def _collate_fn(batch):
     # batch give lists of _getitem_, [audio1, label1], [audio2, label2], ...
     spectrograms = [i[0] for i in batch]
     labels = [i[1] for i in batch]
-    input_lengths = torch.LongTensor([i[0].size(0)//2 for i in batch])
+    #input_lengths = torch.LongTensor([i[0].size(0)//2 for i in batch])
+    input_lengths = torch.LongTensor([i[0].size(0) for i in batch])
     label_lengths = torch.LongTensor([len(i[1]) for i in batch])
     
     # Pad batch to length of longest sample
-    spectrograms = nn.utils.rnn.pad_sequence(spectrograms, batch_first=True).unsqueeze(1).transpose(2, 3) ##DS
+    #spectrograms = nn.utils.rnn.pad_sequence(spectrograms, batch_first=True).unsqueeze(1).transpose(2, 3) ##DS [B, 1, 128, T]
+    spectrograms = nn.utils.rnn.pad_sequence(spectrograms, batch_first=True).transpose(1, 2) ##ebranch [B, T, 80]
     labels = nn.utils.rnn.pad_sequence(labels, batch_first=True)
 
     return spectrograms, labels, input_lengths, label_lengths
 
 train_dataset = LibriSpeechDataset(type="train")
 test_dataset = LibriSpeechDataset(type="test")
-#test_dataset = torch.utils.data.Subset(test_dataset, [0])
+test_dataset = torch.utils.data.Subset(test_dataset, [0])
 
 train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, collate_fn=_collate_fn,)
 val_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=_collate_fn,)
@@ -78,7 +81,7 @@ checkpoint_callback = ModelCheckpoint(
     save_top_k=3,
     monitor="train_loss",
     mode="min",
-    dirpath="logs/",
+    dirpath="logs/ebranch/",
     filename="libris100-{epoch:02d}-{val_loss:.2f}",
 )
 
@@ -92,7 +95,7 @@ trainer = Trainer(precision="32-true",
                     accelerator="gpu", 
                     logger=tb_logger,
                     callbacks=[checkpoint_callback],
-                    devices=[0, 1, 2, 3])
+                    devices=[2])
 
-#trainer.fit(model, train_dataloader, val_dataloader)
-trainer.test(model, dataloaders=test_dataloader, ckpt_path="~/qhdd14/hdd14/kyujin/241125_asr_project/libris_asr/logs/libris100-epoch=69-val_loss=0.00.ckpt")
+trainer.fit(model, train_dataloader, val_dataloader)
+#trainer.test(model, dataloaders=test_dataloader, ckpt_path="~/qhdd14/hdd14/kyujin/241125_asr_project/libris_asr/logs/libris100-epoch=69-val_loss=0.00.ckpt")
